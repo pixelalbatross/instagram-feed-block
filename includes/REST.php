@@ -2,7 +2,7 @@
 
 namespace Outstand\WP\InstagramFeed;
 
-class REST {
+class REST extends BaseModule {
 
 	/**
 	 * Routes namespace.

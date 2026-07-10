@@ -24,9 +24,7 @@
   "require-dev": {
     "phpcompatibility/php-compatibility": "^9.3",
     "phpcompatibility/phpcompatibility-wp": "*",
-    "phpstan/phpstan": "^1.11",
-    "pixelalbatross/coding-standards": "dev-main",
-    "szepeviktor/phpstan-wordpress": "^1.3"
+    "pixelalbatross/coding-standards": "dev-main"
   },
   "scripts": {
     "lint": "phpcs .",

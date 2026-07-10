@@ -2,7 +2,7 @@
 
 namespace Outstand\WP\InstagramFeed;
 
-class Settings {
+class Settings extends BaseModule {
 
 	/**
 	 * Authorization status: Authorized.
@@ -59,6 +59,20 @@ class Settings {
 	 * @var string
 	 */
 	const OPTION_NAME = 'outstand_instagram_feed_settings';
+
+	/**
+	 * Nonce action for the OAuth `state` CSRF token.
+	 *
+	 * @var string
+	 */
+	const OAUTH_NONCE_ACTION = 'outstand_instagram_feed_oauth';
+
+	/**
+	 * Tag prefix marking an encrypted stored secret.
+	 *
+	 * @var string
+	 */
+	const ENCRYPTION_TAG = 'enc:v1:';
 
 	/**
 	 * The settings page slug name.
@@ -268,16 +282,44 @@ class Settings {
 	/**
 	 * Sanitize settings before saving.
 	 *
-	 * Merges incoming form values with existing stored values to prevent
-	 * non-form fields (access_token, auth_status) from being lost on save.
+	 * Sanitizes each known field and drops any unknown keys. Non-form fields
+	 * (access_token, auth_status) are preserved from the existing option so
+	 * they are not lost on save. The App Secret is stored encrypted; a blank
+	 * or unchanged submission keeps the existing ciphertext (and does not
+	 * re-encrypt, so credential-change detection stays accurate).
 	 *
-	 * @param  array $input The submitted settings.
+	 * @param  mixed $input The submitted settings.
 	 * @return array
 	 */
-	public function sanitize_settings( array $input ): array {
+	public function sanitize_settings( mixed $input ): array {
+
+		$input    = is_array( $input ) ? $input : [];
 		$existing = get_option( self::OPTION_NAME, [] );
 
-		return array_merge( $existing, $input );
+		$output = [];
+
+		$output['app_id'] = isset( $input['app_id'] )
+			? sanitize_text_field( $input['app_id'] )
+			: (string) ( $existing['app_id'] ?? '' );
+
+		$submitted_secret = isset( $input['app_secret'] ) ? trim( sanitize_text_field( $input['app_secret'] ) ) : '';
+		$existing_secret  = (string) ( $existing['app_secret'] ?? '' );
+
+		if ( $submitted_secret === '' ) {
+			// Blank submission: keep the stored (encrypted) secret.
+			$output['app_secret'] = $existing_secret;
+		} elseif ( $submitted_secret === self::decrypt_secret( $existing_secret ) ) {
+			// Unchanged: keep existing ciphertext, avoiding a spurious re-encrypt.
+			$output['app_secret'] = $existing_secret;
+		} else {
+			$output['app_secret'] = self::encrypt_secret( $submitted_secret );
+		}
+
+		// Preserve server-managed fields; never accept them from POST.
+		$output['access_token'] = (string) ( $existing['access_token'] ?? '' );
+		$output['auth_status']  = (string) ( $existing['auth_status'] ?? self::AUTH_STATUS_NOT_CONNECTED );
+
+		return $output;
 	}
 
 	/**
@@ -322,13 +364,18 @@ class Settings {
 	 * @return void
 	 */
 	public function display_app_secret_field(): void {
-		$settings = get_option( self::OPTION_NAME, [] );
-		$value    = ! empty( $settings['app_secret'] ) ? $settings['app_secret'] : '';
+		$has_secret = '' !== $this->get_app_secret();
+
+		// Never render the stored secret. When one exists, show a placeholder;
+		// submitting the field blank keeps the existing value.
+		$placeholder = $has_secret
+			? __( 'Leave blank to keep the current secret', 'outstand-instagram-feed' )
+			: '';
 
 		printf(
-			'<input size="50" id="app_secret" name="%s[app_secret]" type="password" value="%s">',
+			'<input size="50" id="app_secret" name="%s[app_secret]" type="password" value="" placeholder="%s" autocomplete="off">',
 			esc_attr( self::OPTION_NAME ),
-			esc_attr( $value )
+			esc_attr( $placeholder )
 		);
 	}
 
@@ -370,9 +417,11 @@ class Settings {
 
 		$action_button = '';
 		if ( ! empty( $this->get_app_id() ) && ! empty( $this->get_app_secret() ) ) {
+			$state = wp_create_nonce( self::OAUTH_NONCE_ACTION );
+
 			$action_button = sprintf(
 				'<a href="%1$s" class="button button-secondary">%2$s</a>',
-				esc_url( $client->get_authorization_url( $this->get_redirect_uri() ) ),
+				esc_url( $client->get_authorization_url( $this->get_redirect_uri(), $state ) ),
 				esc_html( $button_text )
 			);
 		}
@@ -445,8 +494,21 @@ class Settings {
 			return;
 		}
 
+		// Verify the CSRF `state` token before acting on any callback data.
+		// Without this, an attacker could complete the OAuth dance with their
+		// own account and get an admin to visit the callback (login CSRF).
+		// The `state` value is itself the nonce; it is verified immediately below.
+		$state = isset( $_GET['state'] ) ? sanitize_text_field( wp_unslash( $_GET['state'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( ! wp_verify_nonce( $state, self::OAUTH_NONCE_ACTION ) ) {
+			Logger::error( 'oauth_state_invalid_or_expired' );
+			$this->set_auth_status( self::AUTH_STATUS_FAILED );
+			wp_safe_redirect( $this->get_page_url() );
+			exit();
+		}
+
 		// Check for user denial or authorization errors.
-		$error = get_query_var( 'error' );
+		$error = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET['error'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( ! empty( $error ) ) {
 			// User denied authorization or other error occurred.
@@ -456,7 +518,7 @@ class Settings {
 		}
 
 		// Get authorization code from Instagram.
-		$code = get_query_var( 'code' );
+		$code = isset( $_GET['code'] ) ? sanitize_text_field( wp_unslash( $_GET['code'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( empty( $code ) ) {
 			// No authorization code received - authorization failed.
@@ -515,7 +577,7 @@ class Settings {
 	 */
 	public function set_access_token( string $access_token ): void {
 		$settings                 = get_option( self::OPTION_NAME, [] );
-		$settings['access_token'] = $access_token;
+		$settings['access_token'] = self::encrypt_secret( $access_token );
 		$settings['auth_status']  = self::AUTH_STATUS_AUTHORIZED;
 		update_option( self::OPTION_NAME, $settings );
 	}
@@ -549,7 +611,7 @@ class Settings {
 	 */
 	public function get_access_token(): string {
 		$settings = get_option( self::OPTION_NAME, [] );
-		return $settings['access_token'] ?? '';
+		return self::decrypt_secret( (string) ( $settings['access_token'] ?? '' ) );
 	}
 
 	/**
@@ -579,7 +641,7 @@ class Settings {
 		}
 
 		$settings = get_option( self::OPTION_NAME, [] );
-		return isset( $settings['app_secret'] ) ? $settings['app_secret'] : '';
+		return self::decrypt_secret( (string) ( $settings['app_secret'] ?? '' ) );
 	}
 
 	/**
@@ -1021,5 +1083,53 @@ class Settings {
 		}
 
 		return Plugin::get_instance()->get_client()->get_long_lived_access_token( $access_token );
+	}
+
+	/**
+	 * Encrypt a secret for storage, returning an `enc:v1:` tagged ciphertext.
+	 *
+	 * @param  string $plaintext Plain secret.
+	 * @return string Encrypted string, or empty string on failure/empty input.
+	 */
+	private static function encrypt_secret( string $plaintext ): string {
+
+		if ( $plaintext === '' ) {
+			return '';
+		}
+
+		$cipher = Encryption::encrypt( $plaintext );
+
+		if ( $cipher === false ) {
+			Logger::error( 'encrypt_secret: encryption failed; storing empty' );
+			return '';
+		}
+
+		return self::ENCRYPTION_TAG . $cipher;
+	}
+
+	/**
+	 * Decrypt a stored secret. Handles legacy plaintext transparently.
+	 *
+	 * @param  string $value Stored value.
+	 * @return string Plain secret.
+	 */
+	private static function decrypt_secret( string $value ): string {
+
+		if ( $value === '' ) {
+			return '';
+		}
+
+		if ( strpos( $value, self::ENCRYPTION_TAG ) !== 0 ) {
+			return $value; // Legacy plaintext.
+		}
+
+		$decrypted = Encryption::decrypt( substr( $value, strlen( self::ENCRYPTION_TAG ) ) );
+
+		if ( $decrypted === false ) {
+			Logger::error( 'decrypt_secret: failed; returning empty' );
+			return '';
+		}
+
+		return $decrypted;
 	}
 }

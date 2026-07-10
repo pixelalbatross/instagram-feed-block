@@ -1,8 +1,17 @@
 #---------------------------
+# Dependencies
+#---------------------------
+node_modules/
+/vendor/*
+!/vendor/autoload.php
+!/vendor/composer/
+/vendor/composer/*/
+!/vendor/yahnis-elsts/
+
+#---------------------------
 # Project
 #---------------------------
 .claude
-node_modules/
 .node_history
 package-lock.json
 **/package-lock.json

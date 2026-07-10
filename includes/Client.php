@@ -98,9 +98,10 @@ class Client {
 	 * Get authorization URL.
 	 *
 	 * @param string $redirect_uri OAuth redirect URI.
+	 * @param string $state        CSRF state token (WP nonce) round-tripped through the OAuth flow.
 	 * @return string
 	 */
-	public function get_authorization_url( string $redirect_uri ): string {
+	public function get_authorization_url( string $redirect_uri, string $state = '' ): string {
 
 		$permissions = [
 			'instagram_business_basic',
@@ -113,6 +114,7 @@ class Client {
 				'redirect_uri'  => $redirect_uri,
 				'response_type' => 'code',
 				'scope'         => implode( ',', $permissions ),
+				'state'         => $state,
 			],
 			self::AUTHORIZATION_URL
 		);
@@ -173,7 +175,7 @@ class Client {
 				sprintf(
 					/* translators: %s: API error message */
 					__( 'Instagram API error during token exchange: %s', 'outstand-instagram-feed' ),
-					$data['error_message']
+					$data['error_message'] ?? __( 'Unknown error.', 'outstand-instagram-feed' )
 				)
 			);
 		}

@@ -5,7 +5,7 @@
  * Plugin URI:        https://outstand.site/?utm_source=wp-plugins&utm_medium=outstand-instagram-feed&utm_campaign=plugin-uri
  * Requires at least: 6.7
  * Requires PHP:      8.2
- * Version:           1.1.2
+ * Version:           1.2.0
  * Author:            Outstand
  * Author URI:        https://outstand.site/?utm_source=wp-plugins&utm_medium=outstand-instagram-feed&utm_campaign=author-uri
  * License:           GPL-3.0-or-later
@@ -13,6 +13,7 @@
  * Update URI:        https://outstand.site/
  * GitHub Plugin URI: https://github.com/pixelalbatross/outstand-instagram-feed
  * Text Domain:       outstand-instagram-feed
+ * Domain Path:       /languages
  */
 
 namespace Outstand\WP\InstagramFeed;
@@ -24,10 +25,13 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
+define( 'OUTSTAND_INSTAGRAM_FEED_VERSION', '1.2.0' );
 define( 'OUTSTAND_INSTAGRAM_FEED_BASENAME', plugin_basename( __FILE__ ) );
 define( 'OUTSTAND_INSTAGRAM_FEED_URL', plugin_dir_url( __FILE__ ) );
 define( 'OUTSTAND_INSTAGRAM_FEED_PATH', plugin_dir_path( __FILE__ ) );
 define( 'OUTSTAND_INSTAGRAM_FEED_INC', OUTSTAND_INSTAGRAM_FEED_PATH . 'includes/' );
+define( 'OUTSTAND_INSTAGRAM_FEED_DIST_URL', OUTSTAND_INSTAGRAM_FEED_URL . 'build/' );
+define( 'OUTSTAND_INSTAGRAM_FEED_DIST_PATH', OUTSTAND_INSTAGRAM_FEED_PATH . 'build/' );
 
 if ( ! file_exists( OUTSTAND_INSTAGRAM_FEED_PATH . 'vendor/autoload.php' ) ) {
 	return;
@@ -35,11 +39,13 @@ if ( ! file_exists( OUTSTAND_INSTAGRAM_FEED_PATH . 'vendor/autoload.php' ) ) {
 
 require_once OUTSTAND_INSTAGRAM_FEED_PATH . 'vendor/autoload.php';
 
-PucFactory::buildUpdateChecker(
-	'https://github.com/pixelalbatross/outstand-instagram-feed/',
-	__FILE__,
-	'outstand-instagram-feed'
-)->setBranch( 'main' );
+if ( class_exists( PucFactory::class ) ) {
+	PucFactory::buildUpdateChecker(
+		'https://github.com/pixelalbatross/outstand-instagram-feed/',
+		__FILE__,
+		'outstand-instagram-feed'
+	)->setBranch( 'main' );
+}
 
 // Activation/Deactivation.
 register_deactivation_hook( __FILE__, __NAMESPACE__ . '\Plugin::deactivate' );

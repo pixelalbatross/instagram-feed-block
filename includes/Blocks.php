@@ -2,7 +2,7 @@
 
 namespace Outstand\WP\InstagramFeed;
 
-class Blocks {
+class Blocks extends BaseModule {
 
 	/**
 	 * Register any hooks and filters.

@@ -7,9 +7,13 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
+    'Outstand\\WP\\InstagramFeed\\BaseModule' => $baseDir . '/includes/BaseModule.php',
     'Outstand\\WP\\InstagramFeed\\Blocks' => $baseDir . '/includes/Blocks.php',
     'Outstand\\WP\\InstagramFeed\\Client' => $baseDir . '/includes/Client.php',
     'Outstand\\WP\\InstagramFeed\\Cron' => $baseDir . '/includes/Cron.php',
+    'Outstand\\WP\\InstagramFeed\\Encryption' => $baseDir . '/includes/Encryption.php',
+    'Outstand\\WP\\InstagramFeed\\GetAssetInfo' => $baseDir . '/includes/GetAssetInfo.php',
+    'Outstand\\WP\\InstagramFeed\\Logger' => $baseDir . '/includes/Logger.php',
     'Outstand\\WP\\InstagramFeed\\Plugin' => $baseDir . '/includes/Plugin.php',
     'Outstand\\WP\\InstagramFeed\\REST' => $baseDir . '/includes/REST.php',
     'Outstand\\WP\\InstagramFeed\\Settings' => $baseDir . '/includes/Settings.php',

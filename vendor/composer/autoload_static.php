@@ -12,14 +12,14 @@ class ComposerStaticInit1608e606d5f0a91f1d6474da94a0b80e
     );
 
     public static $prefixLengthsPsr4 = array (
-        'O' => 
+        'O' =>
         array (
             'Outstand\\WP\\InstagramFeed\\' => 26,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'Outstand\\WP\\InstagramFeed\\' => 
+        'Outstand\\WP\\InstagramFeed\\' =>
         array (
             0 => __DIR__ . '/../..' . '/includes',
         ),
@@ -27,9 +27,13 @@ class ComposerStaticInit1608e606d5f0a91f1d6474da94a0b80e
 
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
+        'Outstand\\WP\\InstagramFeed\\BaseModule' => __DIR__ . '/../..' . '/includes/BaseModule.php',
         'Outstand\\WP\\InstagramFeed\\Blocks' => __DIR__ . '/../..' . '/includes/Blocks.php',
         'Outstand\\WP\\InstagramFeed\\Client' => __DIR__ . '/../..' . '/includes/Client.php',
         'Outstand\\WP\\InstagramFeed\\Cron' => __DIR__ . '/../..' . '/includes/Cron.php',
+        'Outstand\\WP\\InstagramFeed\\Encryption' => __DIR__ . '/../..' . '/includes/Encryption.php',
+        'Outstand\\WP\\InstagramFeed\\GetAssetInfo' => __DIR__ . '/../..' . '/includes/GetAssetInfo.php',
+        'Outstand\\WP\\InstagramFeed\\Logger' => __DIR__ . '/../..' . '/includes/Logger.php',
         'Outstand\\WP\\InstagramFeed\\Plugin' => __DIR__ . '/../..' . '/includes/Plugin.php',
         'Outstand\\WP\\InstagramFeed\\REST' => __DIR__ . '/../..' . '/includes/REST.php',
         'Outstand\\WP\\InstagramFeed\\Settings' => __DIR__ . '/../..' . '/includes/Settings.php',

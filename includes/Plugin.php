@@ -16,7 +16,7 @@ class Plugin {
 	 *
 	 * @var Plugin|null
 	 */
-	public static ?Plugin $instance = null;
+	private static ?Plugin $instance = null;
 
 	/**
 	 * Instagram API instance.
@@ -57,11 +57,14 @@ class Plugin {
 	/**
 	 * Deactivate the plugin.
 	 *
+	 * Only unschedules cron events and clears transient caches. User data
+	 * (credentials, access token, settings) is preserved so that a temporary
+	 * deactivation does not force a full re-setup and re-authorization. Option
+	 * cleanup belongs in uninstall.php.
+	 *
 	 * @return void
 	 */
 	public static function deactivate(): void {
-		delete_option( Settings::OPTION_NAME );
-		delete_option( self::REWRITE_RULES_VERSION_OPTION_NAME );
 		wp_clear_scheduled_hook( Cron::REFRESH_TOKEN_HOOK );
 		delete_transient( Client::CACHE_KEY );
 	}
@@ -73,15 +76,17 @@ class Plugin {
 	 */
 	public function enable(): void {
 
-		$objects = [
+		$modules = [
 			new Blocks(),
 			new Cron(),
 			new REST(),
 			$this->get_settings(),
 		];
 
-		foreach ( $objects as $object ) {
-			$object->register();
+		foreach ( $modules as $module ) {
+			if ( $module instanceof BaseModule && $module->can_register() ) {
+				$module->register();
+			}
 		}
 
 		add_action( 'init', [ $this, 'i18n' ] );
@@ -114,7 +119,6 @@ class Plugin {
 			update_option( self::REWRITE_RULES_VERSION_OPTION_NAME, $this->rewrite_rules_version );
 
 			flush_rewrite_rules( false );
-			wp_cache_flush();
 		}
 	}
 
@@ -148,10 +152,6 @@ class Plugin {
 	 */
 	public function add_query_vars( array $query_vars ): array {
 		$query_vars[] = 'outstand-instagram-feed-auth';
-		$query_vars[] = 'code';
-		$query_vars[] = 'error';
-		$query_vars[] = 'error_reason';
-		$query_vars[] = 'error_description';
 		return $query_vars;
 	}
 
